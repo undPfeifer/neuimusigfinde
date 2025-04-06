@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spotify Music Filter</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #121212;
+            color: #ffffff;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+        .logo {
+            width: 50px;
+            height: 50px;
+            background-color: #1DB954;
+            border-radius: 50%;
+            margin-right: 15px;
+        }
+        h1 {
+            margin: 0;
+            font-size: 24px;
+        }
+        .filter-section {
+            background-color: #282828;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+        }
+        .filter-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+        }
+        .filter-item {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 14px;
+            color: #b3b3b3;
+        }
+        input, select {
+            width: 100%;
+            padding: 10px;
+            background-color: #3E3E3E;
+            border: none;
+            border-radius: 4px;
+            color: #ffffff;
+        }
+        input[type="range"] {
+            height: 5px;
+            -webkit-appearance: none;
+            margin: 10px 0;
+            background-color: #3E3E3E;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: #1DB954;
+            cursor: pointer;
+        }
+        button {
+            background-color: #1DB954;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 30px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        button:hover {
+            background-color: #1ED760;
+            transform: scale(1.05);
+        }
+        .results {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 20px;
+        }
+        .track-card {
+            background-color: #282828;
+            border-radius: 8px;
+            overflow: hidden;
+            transition: all 0.3s;
+        }
+        .track-card:hover {
+            background-color: #3E3E3E;
+            transform: translateY(-5px);
+        }
+        .track-image {
+            width: 100%;
+            aspect-ratio: 1;
+            background-color: #3E3E3E;
+        }
+        .track-info {
+            padding: 15px;
+        }
+        .track-name {
+            font-weight: bold;
+            margin: 0 0 5px 0;
+        }
+        .track-artist {
+            color: #b3b3b3;
+            margin: 0 0 10px 0;
+            font-size: 14px;
+        }
+        .track-meta {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            color: #b3b3b3;
+        }
+        .loading {
+            text-align: center;
+            padding: 40px;
+            display: none;
+        }
+        .auth-section {
+            text-align: center;
+            padding: 40px;
+        }
+        #login-button {
+            display: inline-block;
+        }
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="logo"></div>
+            <h1>Spotify Music Filter</h1>
+        </header>
+
+        <div id="auth-section" class="auth-section">
+            <p>Connect to your Spotify account to start discovering music</p>
+            <button id="login-button">Connect to Spotify</button>
+        </div>
+
+        <div id="app-content" class="hidden">
+            <div class="filter-section">
+                <h2>Filter Options</h2>
+                <div class="filter-grid">
+                    <div class="filter-item">
+                        <label for="genre">Genre</label>
+                        <select id="genre">
+                            <option value="">Any Genre</option>
+                            <!-- Will be populated by JavaScript -->
+                        </select>
+                    </div>
+                    <div class="filter-item">
+                        <label for="release-date-from">Release Date (From)</label>
+                        <input type="date" id="release-date-from">
+                    </div>
+                    <div class="filter-item">
+                        <label for="release-date-to">Release Date (To)</label>
+                        <input type="date" id="release-date-to">
+                    </div>
+                    <div class="filter-item">
+                        <label for="popularity">Minimum Popularity</label>
+                        <input type="range" id="popularity" min="0" max="100" value="0">
+                        <span id="popularity-value">0</span>
+                    </div>
+                    <div class="filter-item">
+                        <label for="energy">Energy Level</label>
+                        <input type="range" id="energy" min="0" max="100" value="50">
+                        <span id="energy-value">50%</span>
+                    </div>
+                    <div class="filter-item">
+                        <label for="danceability">Danceability</label>
+                        <input type="range" id="danceability" min="0" max="100" value="50">
+                        <span id="danceability-value">50%</span>
+                    </div>
+                </div>
+                <button id="search-button">Discover Music</button>
+            </div>
+
+            <div class="loading" id="loading">
+                <p>Searching for tracks...</p>
+            </div>
+
+            <div class="results" id="results"></div>
+        </div>
+    </div>
+
+    <script>
+        // Spotify API credentials and configuration
+        const clientId = 'YOUR_CLIENT_ID'; // Replace with your Spotify Client ID
+        const redirectUri = 'http://localhost:8000/callback'; // Replace with your redirect URI
+        
+        // Spotify API endpoints
+        const authorizeEndpoint = 'https://accounts.spotify.com/authorize';
+        const tokenEndpoint = 'https://accounts.spotify.com/api/token';
+        const apiBaseUrl = 'https://api.spotify.com/v1';
+        
+        // DOM elements
+        const loginButton = document.getElementById('login-button');
+        const authSection = document.getElementById('auth-section');
+        const appContent = document.getElementById('app-content');
+        const searchButton = document.getElementById('search-button');
+        const genreSelect = document.getElementById('genre');
+        const loadingElement = document.getElementById('loading');
+        const resultsContainer = document.getElementById('results');
+        
+        // Range input value displays
+        const popularityRange = document.getElementById('popularity');
+        const popularityValue = document.getElementById('popularity-value');
+        const energyRange = document.getElementById('energy');
+        const energyValue = document.getElementById('energy-value');
+        const danceabilityRange = document.getElementById('danceability');
+        const danceabilityValue = document.getElementById('danceability-value');
+        
+        // Update range value displays
+        popularityRange.addEventListener('input', () => {
+            popularityValue.textContent = popularityRange.value;
+        });
+        
+        energyRange.addEventListener('input', () => {
+            energyValue.textContent = `${energyRange.value}%`;
+        });
+        
+        danceabilityRange.addEventListener('input', () => {
+            danceabilityValue.textContent = `${danceabilityRange.value}%`;
+        });
+        
+        // Function to generate a random string for state parameter
+        function generateRandomString(length) {
+            const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+            let text = '';
+            for (let i = 0; i < length; i++) {
+                text += possible.charAt(Math.floor(Math.random() * possible.length));
+            }
+            return text;
+        }
+        
+        // Function to handle the authorization flow
+        function authorizeWithSpotify() {
+            const state = generateRandomString(16);
+            const scope = 'user-read-private user-read-email';
+            
+            const params = new URLSearchParams({
+                response_type: 'code',
+                client_id: clientId,
+                scope: scope,
+                redirect_uri: redirectUri,
+                state: state
+            });
+            
+            // Store state in localStorage to verify when receiving the callback
+            localStorage.setItem('spotify_auth_state', state);
+            
+            // Redirect to Spotify authorization page
+            window.location.href = `${authorizeEndpoint}?${params.toString()}`;
+        }
+        
+        // Function to handle the callback from Spotify authorization
+        function handleCallback() {
+            const params = new URLSearchParams(window.location.search);
+            const code = params.get('code');
+            const state = params.get('state');
+            const storedState = localStorage.getItem('spotify_auth_state');
+            
+            if (code && state === storedState) {
+                // Exchange code for access token
+                // This would need to be done server-side in a real application
+                // For demo purposes, we'll simulate a successful authentication
+                
+                // Clear state
+                localStorage.removeItem('spotify_auth_state');
+                
+                // Show app content
+                authSection.classList.add('hidden');
+                appContent.classList.remove('hidden');
+                
+                // Load available genres
+                loadGenres();
+            }
+        }
+        
+        // Function to load available genres from Spotify API
+        async function loadGenres() {
+            // In a real app, you would make a fetch request to the Spotify API
+            // For demo purposes, we'll populate with some common genres
+            const commonGenres = [
+                'pop', 'rock', 'hip-hop', 'electronic', 'jazz', 
+                'classical', 'r-n-b', 'country', 'folk', 'indie'
+            ];
+            
+            genreSelect.innerHTML = '<option value="">Any Genre</option>';
+            
+            commonGenres.forEach(genre => {
+                const option = document.createElement('option');
+                option.value = genre;
+                option.textContent = genre.charAt(0).toUpperCase() + genre.slice(1);
+                genreSelect.appendChild(option);
+            });
+        }
+        
+        // Function to search for tracks based on filter criteria
+        async function searchTracks() {
+            // Get filter values
+            const genre = genreSelect.value;
+            const releaseDateFrom = document.getElementById('release-date-from').value;
+            const releaseDateTo = document.getElementById('release-date-to').value;
+            const popularity = popularityRange.value;
+            const energy = energyRange.value / 100; // Convert to decimal for Spotify API
+            const danceability = danceabilityRange.value / 100; // Convert to decimal for Spotify API
+            
+            // Show loading indicator
+            loadingElement.style.display = 'block';
+            resultsContainer.innerHTML = '';
+            
+            // In a real app, you would construct a query to the Spotify API
+            // For demo purposes, we'll simulate a response
+            setTimeout(() => {
+                // Hide loading indicator
+                loadingElement.style.display = 'none';
+                
+                // Generate mock tracks
+                const tracks = generateMockTracks(12, {
+                    genre: genre,
+                    releaseDateFrom: releaseDateFrom,
+                    releaseDateTo: releaseDateTo,
+                    popularity: popularity,
+                    energy: energy,
+                    danceability: danceability
+                });
+                
+                // Display tracks
+                displayTracks(tracks);
+            }, 1500);
+        }
+        
+        // Function to generate mock tracks for demonstration
+        function generateMockTracks(count, filters) {
+            const tracks = [];
+            const currentYear = new Date().getFullYear();
+            
+            const artists = [
+                'The Weeknd', 'Dua Lipa', 'Kendrick Lamar', 'Billie Eilish', 
+                'Arctic Monkeys', 'Taylor Swift', 'Drake', 'Adele', 
+                'BTS', 'Bad Bunny', 'Tyler, The Creator', 'Lana Del Rey'
+            ];
+            
+            for (let i = 0; i < count; i++) {
+                // Generate random date within filter range or default to last 5 years
+                let releaseDate;
+                if (filters.releaseDateFrom && filters.releaseDateTo) {
+                    const fromDate = new Date(filters.releaseDateFrom);
+                    const toDate = new Date(filters.releaseDateTo);
+                    releaseDate = new Date(fromDate.getTime() + Math.random() * (toDate.getTime() - fromDate.getTime()));
+                } else {
+                    const year = currentYear - Math.floor(Math.random() * 5);
+                    const month = Math.floor(Math.random() * 12) + 1;
+                    const day = Math.floor(Math.random() * 28) + 1;
+                    releaseDate = new Date(year, month - 1, day);
+                }
+                
+                // Format the date as YYYY-MM-DD
+                const formattedDate = releaseDate.toISOString().split('T')[0];
+                
+                // Generate random popularity that meets filter criteria
+                const trackPopularity = Math.max(
+                    parseInt(filters.popularity),
+                    Math.floor(Math.random() * 100)
+                );
+                
+                tracks.push({
+                    name: `Track ${i + 1}`,
+                    artist: artists[Math.floor(Math.random() * artists.length)],
+                    releaseDate: formattedDate,
+                    popularity: trackPopularity,
+                    energy: filters.energy,
+                    danceability: filters.danceability,
+                    plays: Math.floor(Math.random() * 10000000)
+                });
+            }
+            
+            return tracks;
+        }
+        
+        // Function to display tracks in the results container
+        function displayTracks(tracks) {
+            resultsContainer.innerHTML = '';
+            
+            tracks.forEach(track => {
+                const trackCard = document.createElement('div');
+                trackCard.className = 'track-card';
+                
+                trackCard.innerHTML = `
+                    <div class="track-image"></div>
+                    <div class="track-info">
+                        <h3 class="track-name">${track.name}</h3>
+                        <p class="track-artist">${track.artist}</p>
+                        <div class="track-meta">
+                            <span>Released: ${track.releaseDate}</span>
+                            <span>${formatNumber(track.plays)} plays</span>
+                        </div>
+                    </div>
+                `;
+                
+                resultsContainer.appendChild(trackCard);
+            });
+        }
+        
+        // Helper function to format large numbers
+        function formatNumber(num) {
+            if (num >= 1000000) {
+                return (num / 1000000).toFixed(1) + 'M';
+            } else if (num >= 1000) {
+                return (num / 1000).toFixed(1) + 'K';
+            }
+            return num.toString();
+        }
+        
+        // Event listeners
+        loginButton.addEventListener('click', authorizeWithSpotify);
+        searchButton.addEventListener('click', searchTracks);
+        
+        // Check if we're returning from an auth redirect
+        if (window.location.search.includes('code=')) {
+            handleCallback();
+        }
+        
+        // For demo purposes only - skip authentication step
+        // Comment this out when implementing real authentication
+        document.getElementById('login-button').addEventListener('click', function(e) {
+            e.preventDefault();
+            authSection.classList.add('hidden');
+            appContent.classList.remove('hidden');
+            loadGenres();
+        });
+    </script>
+</body>
+</html>
